@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+export IFS='
+'
+
+export FORWARDER=""
+export DELIMITER=""
+
+# Find the authoritative DNS from environment variables
+for i in `env | grep RECURSOR_ | sort -r`; do
+
+    # Get environment variables names and values
+    export _VARNAM=`echo "${i}" | cut -d '=' -f 1`
+    export _VARVAL=`echo "${i}" | cut -d '=' -f 2`
+
+    # xargs to trim whitespaces
+    # tr to translate uppercase to lowercase
+    export _DOMAIN=`echo ${_VARVAL} | cut -d ':' -f 1 | xargs`
+    export _ALIAS=`echo ${_VARVAL}  | cut -d ':' -f 2 | xargs`
+    export _PORTN=`echo ${_VARVAL}  | cut -d ':' -f 3 | xargs`
+    if [ -z "${_PORTN}" ]; then
+	export _PORTN=53
+    fi
+
+    # Show what we are doing...
+    echo _ALIAS: $_ALIAS
+    echo _PORTN: $_PORTN
+    echo _DOMAIN: $_DOMAIN
+
+    # Resolve alias to IP address in /etc/hosts
+    export _IP=`grep "${_ALIAS}" /etc/hosts | awk '{ print $1; }' | head -n 1`
+    echo _IP: $_IP
+
+    # Add domain to comma-separated string
+    if [ ! -z "${_IP}" ]; then
+        export FORWARDER="${FORWARDER}${DELIMITER}${_DOMAIN}=${_IP}:${_PORTN}"
+        export DELIMITER=","
+    fi
+
+done
+echo FORWARDER: $FORWARDER
+
+# Start the recursor server at port 53
+exec /usr/sbin/pdns_recursor --setuid=pdns --setgid=pdns \
+    --daemon=no --local-address=0.0.0.0 --local-port=53  \
+    --forward-zones="${FORWARDER}"
