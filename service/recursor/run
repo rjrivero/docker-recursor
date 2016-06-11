@@ -36,6 +36,10 @@ for i in `env | grep RECURSOR_ | sort -r`; do
 done
 echo FORWARDER: $FORWARDER
 
+if ! grep -q '^max-negative-ttl' /etc/powerdns/recursor.conf; then
+    echo "max-negative-ttl=60" >> /etc/powerdns/recursor.conf
+fi
+
 # Start the recursor server at port 53
 exec /usr/sbin/pdns_recursor --setuid=pdns --setgid=pdns \
     --daemon=no --local-address=0.0.0.0 --local-port=53  \
